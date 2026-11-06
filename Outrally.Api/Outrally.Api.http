@@ -1,0 +1,6 @@
+@Outrally.Api_HostAddress = http://localhost:5248
+
+GET {{Outrally.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

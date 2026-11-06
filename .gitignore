@@ -1,0 +1,19 @@
+# .NET
+**/bin/
+**/obj/
+*.user
+*.suo
+.vs/
+appsettings.Production.json
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+
+# Angular
+web/node_modules/
+web/dist/
+web/.angular/
+
+# General
+.DS_Store
+*.log
