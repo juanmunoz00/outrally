@@ -8,6 +8,13 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.22" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Outrally.Core\Outrally.Core.csproj" />
+    <ProjectReference Include="..\Outrally.Infrastructure\Outrally.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
