@@ -15,14 +15,20 @@ public class ActivitiesControllerTests
         var factory = new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder =>
             {
+                builder.UseSetting("Jwt:Key", "test-secret-key-for-ci-only-32chars!!");
+                builder.UseSetting("Jwt:Issuer", "outrally-api");
+                builder.UseSetting("Jwt:Audience", "outrally-web");
+                builder.UseSetting("ConnectionStrings:DefaultConnection", "");
+
                 builder.ConfigureServices(services =>
                 {
-                    // Remove the existing DbContext registration
-                    var descriptor = services.SingleOrDefault(
-                        d => d.ServiceType == typeof(DbContextOptions<AppDbContext>));
-                    if (descriptor != null) services.Remove(descriptor);
+                    // Remove ALL AppDbContext registrations
+                    var descriptors = services
+                        .Where(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>)
+                                 || d.ServiceType == typeof(AppDbContext))
+                        .ToList();
+                    foreach (var d in descriptors) services.Remove(d);
 
-                    // Add a fresh InMemory database with a unique name per test
                     services.AddDbContext<AppDbContext>(options =>
                         options.UseInMemoryDatabase(Guid.NewGuid().ToString()));
                 });
@@ -87,12 +93,10 @@ public class ActivitiesControllerTests
         var doc = System.Text.Json.JsonDocument.Parse(json);
         var id = doc.RootElement.GetProperty("id").GetInt32();
 
-        // Debug: verify the activity exists before deleting
         var getResponse = await client.GetAsync($"/api/activities/{id}");
-        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode); // fails here if id=0
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
 
         var response = await client.DeleteAsync($"/api/activities/{id}");
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
-
 }
