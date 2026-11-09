@@ -235,9 +235,83 @@ Each phase is a small, working, tested slice of the app. When you finish a phase
 - The first test failed because the endpoint didn't exist yet. **That's the point.** A test you've never seen fail might not be testing anything.
 - Test the "empty" case early. Returning `null` instead of `[]` is a common bug that breaks front-ends.
 
-### ⬜ Phase 2: _TBD_
+### ✅ Phase 2: Auth & Users (complete)
 
-> Placeholder. Describe the goal, what was built, the tests added and lessons learned.
+**Goal:** let users register and log in, and give every request an identity, a role and an organization.
+
+**What was built:**
+
+- **ASP.NET Identity + JWT authentication** for register and login
+- **`ApplicationUser`**, which extends `IdentityUser` with:
+  | Property | Purpose |
+  |---|---|
+  | `FirstName`, `LastName` | Display name |
+  | `Role` | `OE` (Outdoor Enthusiast), `TL` (Team Leader) or `AD` (Admin) |
+  | `OrganizationId` | The organization (tenant) the user belongs to |
+- **`Organization` entity.** There's a single organization for now, but every user has an `OrganizationId`, so the app can become multi-tenant without schema changes.
+- **`AuthController`**
+  | Endpoint | Purpose |
+  |---|---|
+  | `POST /api/auth/register` | Creates a user |
+  | `POST /api/auth/login` | Returns a JWT |
+- **JWT tokens** that include a **role claim** and **expire after 8 hours**
+- **Default organization seeding:** one is created on startup if none exists
+
+**Lessons for juniors:**
+
+- **`ApplicationUser` lives in `Outrally.Infrastructure`, not `Outrally.Core`.** It inherits from `IdentityUser`, which comes from the Identity packages. `Core` must not depend on those packages, so putting the user class in `Infrastructure` keeps the domain layer clean. This is the "dependencies point inward" rule in practice.
+- **Missing JWT secrets make the app crash silently.** If the JWT settings aren't configured locally, the API exits without a useful message. Wrapping `Program.cs` in a `try/catch` surfaces the real error:
+
+  ```csharp
+  try
+  {
+      var builder = WebApplication.CreateBuilder(args);
+      // ... service registration ...
+      var app = builder.Build();
+      // ... middleware ...
+      app.Run();
+  }
+  catch (Exception ex)
+  {
+      Console.WriteLine($"Startup failed: {ex}");
+      throw;
+  }
+  ```
+
+  Set the secrets with `dotnet user-secrets set`, and run it **from the `Outrally.Api` folder**, because user secrets belong to a specific project:
+
+  ```bash
+  cd Outrally.Api
+  dotnet user-secrets set "<JwtSettingKey>" "<value>"
+  ```
+
+  > Replace `<JwtSettingKey>` with the configuration keys `Program.cs` reads for the JWT signing key, issuer and audience.
+
+- **Integration tests need two changes to swap SQL Server for InMemory.** In `WithWebHostBuilder`, you must do **both** of these:
+  1. Override the connection string to an empty string, so the app chooses InMemory:
+     `UseSetting("ConnectionStrings:DefaultConnection", "")`
+  2. Remove **both** the `DbContextOptions<AppDbContext>` **and** the `AppDbContext` service descriptors before registering InMemory.
+
+  If you remove only the options descriptor, the SQL Server provider stays registered alongside InMemory, and the test host crashes at startup with a "multiple database providers" error.
+
+  ```csharp
+  factory.WithWebHostBuilder(builder =>
+  {
+      builder.UseSetting("ConnectionStrings:DefaultConnection", "");
+
+      builder.ConfigureServices(services =>
+      {
+          var toRemove = services
+              .Where(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>)
+                       || d.ServiceType == typeof(AppDbContext))
+              .ToList();
+          foreach (var d in toRemove) services.Remove(d);
+
+          services.AddDbContext<AppDbContext>(o =>
+              o.UseInMemoryDatabase("TestDb"));
+      });
+  });
+  ```
 
 ### ⬜ Phase 3: _TBD_
 
@@ -266,6 +340,70 @@ Short notes on things that tripped us up. If you lose more than 15 minutes to a 
 | class `AppComponent` | class `App` |
 
 **Fix:** to add a new component to the root, edit `app.ts` (add it to the `imports` array) and `app.html` (use its selector). The bootstrapped class is `App`, so anything that references the root component by name should use `App`, not `AppComponent`.
+
+### Angular 22: the UI doesn't update after an HTTP call (zoneless by default)
+
+**Symptom:** an HTTP request succeeds and the component's variable gets the new value (you can see it in the debugger or a `console.log`), but the screen never changes. For example, a loading spinner stays on forever, or a list stays empty.
+
+**Cause:** Angular 22 is **zoneless by default**. Earlier Angular versions included `zone.js`, a library that automatically detected async operations (HTTP calls, timers, events) and told Angular to re-render. Angular 22 doesn't include it. Without zone.js, a plain class field can change in memory without Angular ever redrawing the screen.
+
+**Fix:** use **Angular Signals** (`signal<T>()`) for any state that changes after an async operation. Angular tracks where a signal is read and re-renders automatically when its value changes.
+
+| Before (doesn't re-render) | After (with signals) |
+|---|---|
+| `loading = true;` | `loading = signal(true);` |
+| `this.loading = false;` | `this.loading.set(false);` |
+| `*ngIf="loading"` | `*ngIf="loading()"` |
+
+```typescript
+import { Component, inject, signal } from '@angular/core';
+
+export class ActivityList {
+  private http = inject(HttpClient);
+
+  loading = signal(true);
+  activities = signal<Activity[]>([]);
+
+  ngOnInit() {
+    this.http.get<Activity[]>('/api/activities').subscribe(data => {
+      this.activities.set(data);  // triggers a re-render
+      this.loading.set(false);    // triggers a re-render
+    });
+  }
+}
+```
+
+```html
+<p *ngIf="loading()">Loading…</p>
+<li *ngFor="let a of activities()">{{ a.title }}</li>
+```
+
+**Remember:**
+
+- In templates, **call signals as functions**: `loading()`, not `loading`. Forgetting the `()` is the most common mistake. You get the signal object instead of its value.
+- Apply this to **all** component state that depends on HTTP responses or other async work, not only loading flags.
+
+### JWT: login crashes with `IDX10720` (signing key too short)
+
+**Symptom:** the API starts normally, but `POST /api/auth/login` fails with:
+
+```
+IDX10720: Unable to create KeyedHashAlgorithm
+```
+
+**Cause:** the HS256 algorithm requires a signing key of **at least 256 bits (32 characters)**. The key isn't used until the API signs a token, so a short key in user secrets doesn't fail at startup. It fails the first time someone logs in.
+
+**Fix:** use a JWT signing key of **at least 32 characters**. A random one is safest:
+
+```bash
+# Generates a random 44-character key
+openssl rand -base64 32
+
+cd Outrally.Api
+dotnet user-secrets set "<JwtSettingKey>" "<generated key>"
+```
+
+> **Takeaway:** "it started fine" doesn't mean the configuration is valid. Some settings are only checked when the code that uses them runs, so test the login flow after changing secrets.
 
 ---
 
