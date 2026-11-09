@@ -1,0 +1,35 @@
+<div class="activities">
+  <div style="display:flex; justify-content:space-between; align-items:center">
+    <h2>Upcoming Activities</h2>
+    <button (click)="showForm.set(!showForm())">
+      {{ showForm() ? 'Cancel' : '+ New Activity' }}
+    </button>
+  </div>
+
+  <form *ngIf="showForm()" [formGroup]="form" (ngSubmit)="submit()">
+    <input formControlName="title" placeholder="Title" required />
+    <input formControlName="description" placeholder="Description" />
+    <input formControlName="scheduledDate" type="datetime-local" required />
+    <input formControlName="location" placeholder="Location" required />
+    <input formControlName="maxParticipants" type="number" placeholder="Max participants" required />
+    <button type="submit" [disabled]="form.invalid || submitting()">
+      {{ submitting() ? 'Saving...' : 'Save' }}
+    </button>
+  </form>
+
+  <div *ngIf="loading()">Loading...</div>
+  <div *ngIf="error()" class="error">{{ error() }}</div>
+
+  <div *ngIf="!loading() && activities().length === 0" class="empty">
+    No activities yet.
+  </div>
+
+  <div class="card" *ngFor="let a of activities()">
+    <h3>{{ a.title }}</h3>
+    <p>{{ a.description }}</p>
+    <p><strong>Date:</strong> {{ a.scheduledDate | date }}</p>
+    <p><strong>Location:</strong> {{ a.location }}</p>
+    <p><strong>Spots:</strong> {{ a.maxParticipants }}</p>
+    <span class="badge">{{ statusLabel(a.status) }}</span>
+  </div>
+</div>

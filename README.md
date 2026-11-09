@@ -249,6 +249,26 @@ Each phase is a small, working, tested slice of the app. When you finish a phase
 
 ---
 
+## Troubleshooting notes
+
+Short notes on things that tripped us up. If you lose more than 15 minutes to a problem, add it here.
+
+### Angular 22: root component files are `app.ts` / `app.html`, not `app.component.*`
+
+**Symptom:** tutorials, Stack Overflow answers and older docs tell you to edit `app.component.ts` and `app.component.html`, but those files don't exist in `web/src/app/`.
+
+**Cause:** Angular 22 changed the default naming convention for the root component.
+
+| Older Angular | Angular 22 |
+|---|---|
+| `app.component.ts` | `app.ts` |
+| `app.component.html` | `app.html` |
+| class `AppComponent` | class `App` |
+
+**Fix:** to add a new component to the root, edit `app.ts` (add it to the `imports` array) and `app.html` (use its selector). The bootstrapped class is `App`, so anything that references the root component by name should use `App`, not `AppComponent`.
+
+---
+
 ## Contributing and development approach
 
 ### 1. Test-driven development (TDD)
