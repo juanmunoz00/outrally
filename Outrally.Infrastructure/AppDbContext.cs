@@ -10,4 +10,5 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<Activity> Activities => Set<Activity>();
     public DbSet<Organization> Organizations => Set<Organization>();
+    public DbSet<ActivityAttendee> ActivityAttendees => Set<ActivityAttendee>();
 }

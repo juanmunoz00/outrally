@@ -1,8 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using Outrally.Infrastructure;
 using Xunit;
 
@@ -10,19 +15,20 @@ namespace Outrally.Tests;
 
 public class ActivitiesControllerTests
 {
+    private const string TestJwtKey = "test-secret-key-for-ci-only-32chars!!";
+
     private HttpClient CreateClient()
     {
         var factory = new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder =>
             {
-                builder.UseSetting("Jwt:Key", "test-secret-key-for-ci-only-32chars!!");
+                builder.UseSetting("Jwt:Key", TestJwtKey);
                 builder.UseSetting("Jwt:Issuer", "outrally-api");
                 builder.UseSetting("Jwt:Audience", "outrally-web");
                 builder.UseSetting("ConnectionStrings:DefaultConnection", "");
 
                 builder.ConfigureServices(services =>
                 {
-                    // Remove ALL AppDbContext registrations
                     var descriptors = services
                         .Where(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>)
                                  || d.ServiceType == typeof(AppDbContext))
@@ -34,7 +40,29 @@ public class ActivitiesControllerTests
                 });
             });
 
-        return factory.CreateClient();
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", GenerateTestToken());
+        return client;
+    }
+
+    private string GenerateTestToken()
+    {
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestJwtKey));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, "test-user-id"),
+            new Claim(JwtRegisteredClaimNames.Email, "test@outrally.com"),
+            new Claim(ClaimTypes.Role, "OE")
+        };
+        var token = new JwtSecurityToken(
+            issuer: "outrally-api",
+            audience: "outrally-web",
+            claims: claims,
+            expires: DateTime.UtcNow.AddHours(1),
+            signingCredentials: creds);
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     [Fact]

@@ -1,0 +1,8 @@
+.navbar { display:flex; justify-content:space-between; align-items:center;
+          padding:12px 24px; background:#2d6a4f; color:white; }
+.brand { font-weight:bold; font-size:1.2rem; cursor:pointer; }
+.nav-right { display:flex; align-items:center; gap:12px; }
+.role-badge { background:#95d5b2; color:#1b4332; border-radius:4px;
+              padding:2px 6px; font-size:0.75rem; margin-left:6px; }
+button { background:transparent; border:1px solid white; color:white;
+         padding:4px 12px; border-radius:4px; cursor:pointer; }

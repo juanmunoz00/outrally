@@ -130,6 +130,21 @@ The console prints the URL the API is listening on (from `Outrally.Api/Propertie
 - Open **Swagger UI** at `https://localhost:<port>/swagger` to explore and try the endpoints.
 - Try the endpoint directly at `https://localhost:<port>/api/activities`. Expect `[]` on a fresh InMemory database.
 
+#### Required secrets (Phase 2+)
+
+Since Phase 2, the API needs JWT configuration or it crashes silently on startup. Set these once per machine, from the `Outrally.Api` folder:
+
+```bash
+cd Outrally.Api
+dotnet user-secrets set "Jwt:Key" "your-random-key-minimum-32-characters"
+dotnet user-secrets set "Jwt:Issuer" "outrally-api"
+dotnet user-secrets set "Jwt:Audience" "outrally-web"
+```
+
+Generate a safe key with `openssl rand -base64 32`.
+
+> User secrets are stored in your OS user profile, never in the repo. See [JWT: login crashes with `IDX10720`](#jwt-login-crashes-with-idx10720-signing-key-too-short) for why the key must be at least 32 characters.
+
 #### InMemory vs SQL Server
 
 `Program.cs` chooses the database provider at startup:
@@ -145,7 +160,7 @@ dotnet user-secrets init
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=...;Database=Outrally;..."
 ```
 
-> Check `Program.cs` for the exact setting that switches providers and the connection string name it reads, and update this section if they differ.
+If `ConnectionStrings:DefaultConnection` is empty or missing, the app uses InMemory.
 
 > ⚠️ **Never commit connection strings or passwords.** Use user secrets locally and App Service configuration in Azure.
 
@@ -160,6 +175,31 @@ ng serve
 ```
 
 Open `http://localhost:4200`. The API's CORS policy must allow this origin. It's configured in `Program.cs`.
+
+### 4. First run
+
+With both the API and the Angular app running, open `http://localhost:4200`. You'll be redirected to `/register`.
+
+1. Create an account. New users get the **Outdoor Enthusiast (OE)** role by default.
+2. Sign in at `/login`.
+3. You land on the activities screen.
+
+> With the InMemory database, users disappear when the API restarts, so you'll need to register again.
+
+---
+
+## Deploying to Azure
+
+The API is hosted on **Azure App Service**. In the Azure portal, go to **App Service → Configuration → Application settings** and add these settings. A double underscore (`__`) in the name maps to a colon (`:`) in .NET configuration.
+
+| Azure setting name | Maps to | Value |
+|---|---|---|
+| `ConnectionStrings__DefaultConnection` | `ConnectionStrings:DefaultConnection` | The SQL Server connection string |
+| `Jwt__Key` | `Jwt:Key` | JWT signing key, 32+ characters |
+| `Jwt__Issuer` | `Jwt:Issuer` | `outrally-api` |
+| `Jwt__Audience` | `Jwt:Audience` | `outrally-web` |
+
+> ⚠️ Never put these values in `appsettings.json` or commit them to the repo.
 
 ---
 
@@ -256,6 +296,17 @@ Each phase is a small, working, tested slice of the app. When you finish a phase
   | `POST /api/auth/login` | Returns a JWT |
 - **JWT tokens** that include a **role claim** and **expire after 8 hours**
 - **Default organization seeding:** one is created on startup if none exists
+- **Angular auth (frontend)**
+  | File | Purpose |
+  |---|---|
+  | `web/src/app/services/auth.service.ts` | Handles register, login and logout. Stores the JWT and current user in `localStorage`. Exposes `currentUser` as a signal. |
+  | `web/src/app/interceptors/auth.interceptor.ts` | Attaches `Authorization: Bearer <token>` to every outgoing HTTP request. |
+  | `web/src/app/guards/auth.guard.ts` | Protects routes that require login. Redirects to `/login` if no token is found. |
+  | `web/src/app/auth/login.component.ts` | Login form at `/login`. Navigates to `/activities` on success. |
+  | `web/src/app/auth/register.component.ts` | Registration form at `/register`. Navigates to `/login` on success. |
+  | `web/src/app/app.routes.ts` | Defines the routes `/login`, `/register` and `/activities` (guarded). |
+
+  Routes are lazy-loaded with `loadComponent`, so each screen's code downloads only when the user first opens it.
 
 **Lessons for juniors:**
 
@@ -282,10 +333,10 @@ Each phase is a small, working, tested slice of the app. When you finish a phase
 
   ```bash
   cd Outrally.Api
-  dotnet user-secrets set "<JwtSettingKey>" "<value>"
+  dotnet user-secrets set "Jwt:Key" "<32+ character key>"
+  dotnet user-secrets set "Jwt:Issuer" "outrally-api"
+  dotnet user-secrets set "Jwt:Audience" "outrally-web"
   ```
-
-  > Replace `<JwtSettingKey>` with the configuration keys `Program.cs` reads for the JWT signing key, issuer and audience.
 
 - **Integration tests need two changes to swap SQL Server for InMemory.** In `WithWebHostBuilder`, you must do **both** of these:
   1. Override the connection string to an empty string, so the app chooses InMemory:
@@ -400,7 +451,7 @@ IDX10720: Unable to create KeyedHashAlgorithm
 openssl rand -base64 32
 
 cd Outrally.Api
-dotnet user-secrets set "<JwtSettingKey>" "<generated key>"
+dotnet user-secrets set "Jwt:Key" "<generated key>"
 ```
 
 > **Takeaway:** "it started fine" doesn't mean the configuration is valid. Some settings are only checked when the code that uses them runs, so test the login flow after changing secrets.

@@ -192,6 +192,34 @@ namespace Outrally.Infrastructure.Migrations
                     b.ToTable("Activities");
                 });
 
+            modelBuilder.Entity("Outrally.Core.ActivityAttendee", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ActivityId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Cancelled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("SignedUpAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActivityId");
+
+                    b.ToTable("ActivityAttendees");
+                });
+
             modelBuilder.Entity("Outrally.Core.Organization", b =>
                 {
                     b.Property<int>("Id")
@@ -345,6 +373,17 @@ namespace Outrally.Infrastructure.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Outrally.Core.ActivityAttendee", b =>
+                {
+                    b.HasOne("Outrally.Core.Activity", "Activity")
+                        .WithMany()
+                        .HasForeignKey("ActivityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Activity");
                 });
 
             modelBuilder.Entity("Outrally.Infrastructure.ApplicationUser", b =>
