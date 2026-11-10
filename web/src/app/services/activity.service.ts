@@ -10,11 +10,19 @@ export class ActivityService {
 
   constructor(private http: HttpClient) {}
 
-  getAll(): Observable<Activity[]> {
+  getActivities(): Observable<Activity[]> {
     return this.http.get<Activity[]>(this.url);
   }
 
-  create(activity: Omit<Activity, 'id' | 'status' | 'createdAt'>): Observable<Activity> {
+  createActivity(activity: Partial<Activity>): Observable<Activity> {
     return this.http.post<Activity>(this.url, activity);
+  }
+
+  attend(id: number): Observable<void> {
+    return this.http.post<void>(`${this.url}/${id}/attend`, {});
+  }
+
+  cancelAttendance(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.url}/${id}/attend`);
   }
 }

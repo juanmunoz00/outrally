@@ -220,6 +220,77 @@ namespace Outrally.Infrastructure.Migrations
                     b.ToTable("ActivityAttendees");
                 });
 
+            modelBuilder.Entity("Outrally.Core.CarpoolOffer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ActivityId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DepartureLocation")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("DepartureTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DriverName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DriverUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("TotalSeats")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActivityId");
+
+                    b.ToTable("CarpoolOffers");
+                });
+
+            modelBuilder.Entity("Outrally.Core.CarpoolPassenger", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CarpoolOfferId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PassengerId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PassengerName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("SignedUpAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CarpoolOfferId");
+
+                    b.ToTable("CarpoolPassengers");
+                });
+
             modelBuilder.Entity("Outrally.Core.Organization", b =>
                 {
                     b.Property<int>("Id")
@@ -386,6 +457,28 @@ namespace Outrally.Infrastructure.Migrations
                     b.Navigation("Activity");
                 });
 
+            modelBuilder.Entity("Outrally.Core.CarpoolOffer", b =>
+                {
+                    b.HasOne("Outrally.Core.Activity", "Activity")
+                        .WithMany()
+                        .HasForeignKey("ActivityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Activity");
+                });
+
+            modelBuilder.Entity("Outrally.Core.CarpoolPassenger", b =>
+                {
+                    b.HasOne("Outrally.Core.CarpoolOffer", "CarpoolOffer")
+                        .WithMany("Passengers")
+                        .HasForeignKey("CarpoolOfferId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CarpoolOffer");
+                });
+
             modelBuilder.Entity("Outrally.Infrastructure.ApplicationUser", b =>
                 {
                     b.HasOne("Outrally.Core.Organization", "Organization")
@@ -395,6 +488,11 @@ namespace Outrally.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("Outrally.Core.CarpoolOffer", b =>
+                {
+                    b.Navigation("Passengers");
                 });
 #pragma warning restore 612, 618
         }

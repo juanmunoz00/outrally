@@ -74,6 +74,40 @@ try
         }
     }
 
+    // Seed test users (dev only)
+    if (app.Environment.IsDevelopment())
+    {
+        using var scope = app.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        async Task SeedUser(string email, string firstName, string lastName, UserRole role)
+        {
+            if (await userManager.FindByEmailAsync(email) == null)
+            {
+                var user = new ApplicationUser
+                {
+                    UserName = email,
+                    Email = email,
+                    FirstName = firstName,
+                    LastName = lastName,
+                    Role = role,
+                    OrganizationId = 1,
+                    EmailConfirmed = true
+                };
+                await userManager.CreateAsync(user, "Test1234!");
+            }
+        }
+
+        await SeedUser("rafa@outrally.dev",  "Rafa",   "Admin",  UserRole.AD);
+        await SeedUser("javi@outrally.dev", "Javi",  "Leader", UserRole.TL);
+        await SeedUser("joe@outrally.dev", "Joe",  "Leader", UserRole.TL);
+
+        await SeedUser("vivi@outrally.dev", "Vivi", "Member", UserRole.OE);
+        await SeedUser("jimmy@outrally.dev", "Jimmy", "Member", UserRole.OE);
+        await SeedUser("juanis@outrally.dev", "Juanis", "Member", UserRole.OE);
+        await SeedUser("eli@outrally.dev", "Eli", "Member", UserRole.OE);                
+    }
+
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();

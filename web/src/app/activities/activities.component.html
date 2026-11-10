@@ -6,30 +6,93 @@
     </button>
   </div>
 
-  <form *ngIf="showForm()" [formGroup]="form" (ngSubmit)="submit()">
-    <input formControlName="title" placeholder="Title" required />
-    <input formControlName="description" placeholder="Description" />
-    <input formControlName="scheduledDate" type="datetime-local" required />
-    <input formControlName="location" placeholder="Location" required />
-    <input formControlName="maxParticipants" type="number" placeholder="Max participants" required />
-    <button type="submit" [disabled]="form.invalid || submitting()">
-      {{ submitting() ? 'Saving...' : 'Save' }}
-    </button>
-  </form>
+  @if (showForm()) {
+    <form (ngSubmit)="submit()">
+      <input [(ngModel)]="newActivity.title" name="title" placeholder="Title" required />
+      <input [(ngModel)]="newActivity.description" name="description" placeholder="Description" />
+      <input [(ngModel)]="newActivity.scheduledDate" name="scheduledDate" type="datetime-local" required />
+      <input [(ngModel)]="newActivity.location" name="location" placeholder="Location" required />
+      <input [(ngModel)]="newActivity.maxParticipants" name="maxParticipants" type="number" placeholder="Max participants" required />
+      <button type="submit" [disabled]="submitting()">
+        {{ submitting() ? 'Saving...' : 'Save' }}
+      </button>
+    </form>
+  }
 
-  <div *ngIf="loading()">Loading...</div>
-  <div *ngIf="error()" class="error">{{ error() }}</div>
+  @if (loading()) { <div>Loading...</div> }
+  @if (error()) { <div class="error">{{ error() }}</div> }
 
-  <div *ngIf="!loading() && activities().length === 0" class="empty">
-    No activities yet.
-  </div>
+  @if (!loading() && activities().length === 0) {
+    <div class="empty">No activities yet.</div>
+  }
 
-  <div class="card" *ngFor="let a of activities()">
-    <h3>{{ a.title }}</h3>
-    <p>{{ a.description }}</p>
-    <p><strong>Date:</strong> {{ a.scheduledDate | date }}</p>
-    <p><strong>Location:</strong> {{ a.location }}</p>
-    <p><strong>Spots:</strong> {{ a.maxParticipants }}</p>
-    <span class="badge">{{ statusLabel(a.status) }}</span>
-  </div>
+  @for (a of activities(); track a.id) {
+    <div class="card">
+      <h3>{{ a.title }}</h3>
+      <p>{{ a.description }}</p>
+      <p><strong>Date:</strong> {{ a.scheduledDate | date }}</p>
+      <p><strong>Location:</strong> {{ a.location }}</p>
+      <p><strong>Spots:</strong> {{ a.attendeeCount }} / {{ a.maxParticipants }}</p>
+      <span class="badge">{{ statusLabel(a.status) }}</span>
+
+      <div class="card-actions">
+        @if (!a.isAttending) {
+          <button [disabled]="a.attendeeCount >= a.maxParticipants" (click)="join(a.id)">
+            {{ a.attendeeCount >= a.maxParticipants ? 'Full' : 'Join' }}
+          </button>
+        } @else {
+          <button (click)="leave(a.id)">Leave</button>
+        }
+        <button (click)="toggleCarpools(a.id)">
+          🚗 Carpools {{ showCarpoolSection()[a.id] ? '▲' : '▼' }}
+        </button>
+      </div>
+
+      @if (showCarpoolSection()[a.id]) {
+        <div class="carpool-section">
+          @let offers = carpools()[a.id] ?? [];
+          @if (offers.length === 0) {
+            <p class="no-carpools">No carpools yet.</p>
+          }
+          @for (offer of offers; track offer.id) {
+            <div class="carpool-offer">
+              <div class="offer-info">
+                <strong>{{ offer.driverName }}</strong> — {{ offer.departureLocation }}
+                <span class="seats">{{ offer.seatsAvailable }} / {{ offer.totalSeats }} seats</span>
+                <span>🕐 {{ offer.departureTime | date:'shortTime' }}</span>
+                @if (offer.notes) { <em>{{ offer.notes }}</em> }
+                @if (offer.passengers.length > 0) {
+                  <span class="passenger-list">🧑‍🤝‍🧑 {{ offer.passengers.join(', ') }}</span>
+                }
+              </div>
+              <div class="offer-actions">
+                @if (offer.isMyOffer) {
+                  <button class="btn-danger" (click)="deleteOffer(offer.id, a.id)">Cancel Offer</button>
+                } @else if (offer.isMyRide) {
+                  <button (click)="leaveCarpool(offer.id, a.id)">Leave Ride</button>
+                } @else {
+                  <button [disabled]="offer.seatsAvailable === 0" (click)="joinCarpool(offer.id, a.id)">
+                    {{ offer.seatsAvailable === 0 ? 'Full' : isInAnyRide(offer, carpools()[a.id]) ? 'Switch Here' : 'Claim Seat' }}
+                  </button>
+                }
+              </div>
+            </div>
+          }
+
+          @if (!showOfferForm()[a.id]) {
+            <button (click)="toggleOfferForm(a.id)">+ Offer a Ride</button>
+          } @else {
+            <form (ngSubmit)="submitOffer(a.id)">
+              <input type="number" placeholder="Seats" [(ngModel)]="offerForm[a.id].totalSeats" name="seats-{{a.id}}" min="1" required />
+              <input placeholder="Departure location" [(ngModel)]="offerForm[a.id].departureLocation" name="dep-{{a.id}}" required />
+              <input type="datetime-local" [(ngModel)]="offerForm[a.id].departureTime" name="time-{{a.id}}" required />
+              <input placeholder="Notes (optional)" [(ngModel)]="offerForm[a.id].notes" name="notes-{{a.id}}" />
+              <button type="submit">Post Ride</button>
+              <button type="button" (click)="toggleOfferForm(a.id)">Cancel</button>
+            </form>
+          }
+        </div>
+      }
+    </div>
+  }
 </div>

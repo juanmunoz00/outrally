@@ -1,3 +1,5 @@
+import { CarpoolOffer } from './carpool.model';
+
 export interface Activity {
   id: number;
   title: string;
@@ -5,8 +7,11 @@ export interface Activity {
   scheduledDate: string;
   location: string;
   maxParticipants: number;
-  status: ActivityStatus;
+  status: string;
   createdAt: string;
+  attendeeCount: number;
+  isAttending: boolean;
+  carpools: CarpoolOffer[];
 }
 
 export enum ActivityStatus {
