@@ -30,10 +30,11 @@ public class CarpoolsControllerTests
                 {
                     var descriptors = services
                         .Where(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>)
-                                 || d.ServiceType == typeof(AppDbContext)).ToList();
+                                || d.ServiceType == typeof(AppDbContext)).ToList();
                     foreach (var d in descriptors) services.Remove(d);
-                    services.AddDbContext<AppDbContext>(o =>
-                        o.UseInMemoryDatabase(Guid.NewGuid().ToString()));
+
+                    var dbName = Guid.NewGuid().ToString();   // ← fix
+                    services.AddDbContext<AppDbContext>(o => o.UseInMemoryDatabase(dbName));
                 });
             });
     }

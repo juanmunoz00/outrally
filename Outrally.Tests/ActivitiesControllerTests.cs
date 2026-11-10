@@ -31,12 +31,13 @@ public class ActivitiesControllerTests
                 {
                     var descriptors = services
                         .Where(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>)
-                                 || d.ServiceType == typeof(AppDbContext))
+                                || d.ServiceType == typeof(AppDbContext))
                         .ToList();
                     foreach (var d in descriptors) services.Remove(d);
 
+                    var dbName = Guid.NewGuid().ToString();   // ← fix
                     services.AddDbContext<AppDbContext>(options =>
-                        options.UseInMemoryDatabase(Guid.NewGuid().ToString()));
+                        options.UseInMemoryDatabase(dbName));
                 });
             });
 
