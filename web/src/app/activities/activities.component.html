@@ -1,3 +1,4 @@
+```html
 <div class="activities">
   <div style="display:flex; justify-content:space-between; align-items:center">
     <h2>Upcoming Activities</h2>
@@ -46,6 +47,9 @@
         <button (click)="toggleCarpools(a.id)">
           🚗 Carpools {{ showCarpoolSection()[a.id] ? '▲' : '▼' }}
         </button>
+        <button (click)="togglePotluck(a.id)">
+          🍽️ Potluck {{ showPotluckSection()[a.id] ? '▲' : '▼' }}
+        </button>
       </div>
 
       @if (showCarpoolSection()[a.id]) {
@@ -93,6 +97,68 @@
           }
         </div>
       }
+
+      @if (showPotluckSection()[a.id]) {
+        <div class="potluck-section">
+          @let items = potluckItems()[a.id] ?? [];
+          @if (items.length === 0) {
+            <p class="no-items">No items on the list yet.</p>
+          }
+          @for (item of items; track item.id) {
+            <div class="potluck-item" [class.covered]="item.isFullyClaimed">
+              <div class="item-info">
+                <strong>{{ item.name }}</strong>
+                <span class="unit-qty">{{ unitLabels[item.unit] }} × {{ item.quantityNeeded }}</span>
+                <span class="claimed-count">{{ item.quantityClaimed }} / {{ item.quantityNeeded }} claimed</span>
+                @if (item.isFullyClaimed) { <span class="covered-badge">✓ Covered</span> }
+                @if (item.notes) { <em>{{ item.notes }}</em> }
+                @if (item.claims.length > 0) {
+                  <span class="claimants">
+                    {{ item.claims.map(c => c.claimantName + ' ×' + c.quantityClaimed).join(', ') }}
+                  </span>
+                }
+              </div>
+              <div class="item-actions">
+                @if (item.isMyItem && (userRole === 'TL' || userRole === 'AD')) {
+                  <button class="btn-danger" (click)="deletePotluckItem(item.id, a.id)">Remove</button>
+                } @else if (item.myClaim) {
+                  <button (click)="dropClaim(item.myClaim.id, a.id)">Drop (×{{ item.myClaim.quantityClaimed }})</button>
+                } @else if (!item.isFullyClaimed) {
+                  <input type="number" min="1" [max]="item.quantityRemaining"
+                    [(ngModel)]="claimQty[item.id]" [placeholder]="'1–' + item.quantityRemaining"
+                    name="claim-{{item.id}}" style="width:60px" />
+                  <button (click)="claimItem(item.id, a.id)">Claim</button>
+                }
+              </div>
+            </div>
+          }
+
+          @if (userRole === 'TL' || userRole === 'AD') {
+            @if (!showItemForm()[a.id]) {
+              <button (click)="toggleItemForm(a.id)">+ Add Item</button>
+            } @else {
+              <form (ngSubmit)="submitItem(a.id)">
+                <input placeholder="Item name" [(ngModel)]="itemForm[a.id].name" name="iname-{{a.id}}" required />
+                <select [(ngModel)]="itemForm[a.id].unit" name="unit-{{a.id}}">
+                  <option [value]="0">Package</option>
+                  <option [value]="1">Bottle</option>
+                  <option [value]="2">Can</option>
+                  <option [value]="3">Bag</option>
+                  <option [value]="4">Box</option>
+                  <option [value]="5">Other</option>
+                </select>
+                <input type="number" min="1" placeholder="Qty needed"
+                  [(ngModel)]="itemForm[a.id].quantityNeeded" name="qty-{{a.id}}" required />
+                <input placeholder="Notes (optional)" [(ngModel)]="itemForm[a.id].notes" name="inotes-{{a.id}}" />
+                <button type="submit">Add</button>
+                <button type="button" (click)="toggleItemForm(a.id)">Cancel</button>
+              </form>
+            }
+          }
+        </div>
+      }
+
     </div>
   }
 </div>
+```

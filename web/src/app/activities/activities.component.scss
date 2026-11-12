@@ -35,3 +35,34 @@
   input { padding: 0.4rem; border: 1px solid #d1d5db; border-radius: 6px; }
   .form-row { display: flex; gap: 0.5rem; }
 }
+
+.potluck-section {
+  margin-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1rem;
+}
+
+.potluck-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f3f4f6;
+  gap: 1rem;
+
+  &.covered { opacity: 0.6; }
+
+  .item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.9rem;
+  }
+
+  .unit-qty { color: #6b7280; font-size: 0.8rem; }
+  .claimed-count { color: #6b7280; font-size: 0.8rem; }
+  .covered-badge { color: #16a34a; font-weight: 600; font-size: 0.8rem; }
+  .claimants { color: #9ca3af; font-size: 0.75rem; font-style: italic; }
+}
+
+.no-items { color: #9ca3af; font-size: 0.9rem; }

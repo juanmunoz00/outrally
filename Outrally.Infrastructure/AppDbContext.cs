@@ -13,4 +13,6 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ActivityAttendee> ActivityAttendees => Set<ActivityAttendee>();
     public DbSet<CarpoolOffer> CarpoolOffers => Set<CarpoolOffer>();
     public DbSet<CarpoolPassenger> CarpoolPassengers => Set<CarpoolPassenger>();    
+    public DbSet<PotluckItem> PotluckItems => Set<PotluckItem>();
+    public DbSet<PotluckClaim> PotluckClaims => Set<PotluckClaim>();    
 }

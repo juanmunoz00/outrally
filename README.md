@@ -380,7 +380,7 @@ Short notes on things that tripped us up. If you lose more than 15 minutes to a 
 
 ### Angular 22: root component files are `app.ts` / `app.html`, not `app.component.*`
 
-**Symptom:** tutorials, Stack Overflow answers and older docs tell you to edit `app.component.ts` and `app.component.html`, but those files don't exist in `web/src/app/`.
+**Symptom:** tutorials, Stack Overflow answers and older docs tell you to edit `app.component.ts` and `app.component.html`, but editing those files won't affect the app. If `app.component.*` files exist in `web/src/app/`, nothing bootstraps them, so delete them to avoid confusion.
 
 **Cause:** Angular 22 changed the default naming convention for the root component.
 

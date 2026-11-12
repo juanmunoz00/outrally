@@ -3,8 +3,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivityService } from '../services/activity.service';
 import { CarpoolService } from '../services/carpool.service';
+import { PotluckService } from '../services/potluck.service';
+import { AuthService } from '../services/auth.service';
 import { Activity } from '../models/activity.model';
 import { CarpoolOffer } from '../models/carpool.model';
+import { PotluckItem, PotluckUnitLabels } from '../models/potluck.model';
 
 @Component({
   selector: 'app-activities',
@@ -16,22 +19,38 @@ import { CarpoolOffer } from '../models/carpool.model';
 export class ActivitiesComponent implements OnInit {
   private activitySvc = inject(ActivityService);
   private carpoolSvc = inject(CarpoolService);
+  private potluckSvc = inject(PotluckService);
+  auth = inject(AuthService);
 
+  // Activity state
   activities = signal<Activity[]>([]);
   loading = signal(false);
   error = signal('');
   showForm = signal(false);
   submitting = signal(false);
+  newActivity = { title: '', description: '', scheduledDate: '', location: '', maxParticipants: 10 };
 
-  // carpool state keyed by activityId
+  // Carpool state
   carpools = signal<Record<number, CarpoolOffer[]>>({});
   showCarpoolSection = signal<Record<number, boolean>>({});
   showOfferForm = signal<Record<number, boolean>>({});
   offerForm: Record<number, any> = {};
 
-  newActivity = { title: '', description: '', scheduledDate: '', location: '', maxParticipants: 10 };
+  // Potluck state
+  potluckItems = signal<Record<number, PotluckItem[]>>({});
+  showPotluckSection = signal<Record<number, boolean>>({});
+  showItemForm = signal<Record<number, boolean>>({});
+  itemForm: Record<number, any> = {};
+  claimQty: Record<number, number> = {};
+  unitLabels = PotluckUnitLabels;
+
+  get userRole(): string {
+    return this.auth.currentUser()?.role ?? 'OE';
+  }
 
   ngOnInit() { this.loadActivities(); }
+
+  // ── Activities ──────────────────────────────────────────────
 
   loadActivities() {
     this.loading.set(true);
@@ -67,7 +86,8 @@ export class ActivitiesComponent implements OnInit {
     return map[status] ?? status;
   }
 
-  // Carpool methods
+  // ── Carpools ─────────────────────────────────────────────────
+
   toggleCarpools(activityId: number) {
     const current = this.showCarpoolSection();
     const isOpen = current[activityId];
@@ -111,8 +131,52 @@ export class ActivitiesComponent implements OnInit {
     this.carpoolSvc.deleteOffer(offerId).subscribe({ next: () => this.loadCarpools(activityId) });
   }
 
-isInAnyRide(offer: CarpoolOffer, offers: CarpoolOffer[]): boolean {
-  return (offers ?? []).some(o => o.isMyRide && o.id !== offer.id);
-}
+  isInAnyRide(offer: CarpoolOffer, offers: CarpoolOffer[]): boolean {
+    return (offers ?? []).some(o => o.isMyRide && o.id !== offer.id);
+  }
 
+  // ── Potluck ──────────────────────────────────────────────────
+
+  togglePotluck(activityId: number) {
+    const current = this.showPotluckSection();
+    const isOpen = current[activityId];
+    this.showPotluckSection.set({ ...current, [activityId]: !isOpen });
+    if (!isOpen) this.loadPotluck(activityId);
+  }
+
+  loadPotluck(activityId: number) {
+    this.potluckSvc.getItems(activityId).subscribe({
+      next: items => this.potluckItems.set({ ...this.potluckItems(), [activityId]: items })
+    });
+  }
+
+  toggleItemForm(activityId: number) {
+    const current = this.showItemForm();
+    this.showItemForm.set({ ...current, [activityId]: !current[activityId] });
+    if (!this.itemForm[activityId]) {
+      this.itemForm[activityId] = { name: '', unit: 0, quantityNeeded: 1, notes: '' };
+    }
+  }
+
+  submitItem(activityId: number) {
+    this.potluckSvc.addItem(activityId, this.itemForm[activityId]).subscribe({
+      next: () => {
+        this.showItemForm.set({ ...this.showItemForm(), [activityId]: false });
+        this.loadPotluck(activityId);
+      }
+    });
+  }
+
+  deletePotluckItem(itemId: number, activityId: number) {
+    this.potluckSvc.deleteItem(itemId).subscribe({ next: () => this.loadPotluck(activityId) });
+  }
+
+  claimItem(itemId: number, activityId: number) {
+    const qty = this.claimQty[itemId] ?? 1;
+    this.potluckSvc.claim(itemId, qty).subscribe({ next: () => this.loadPotluck(activityId) });
+  }
+
+  dropClaim(claimId: number, activityId: number) {
+    this.potluckSvc.dropClaim(claimId).subscribe({ next: () => this.loadPotluck(activityId) });
+  }
 }
