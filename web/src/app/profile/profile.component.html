@@ -1,0 +1,152 @@
+<div class="container mt-4" style="max-width: 700px;">
+  <h2>My Medical &amp; Emergency Profile</h2>
+  <p class="text-muted small">
+    This information is encrypted before storage. Only you and an Admin during an emergency can read it.
+  </p>
+
+  @if (loading()) {
+    <p>Loading…</p>
+  } @else {
+    <form (ngSubmit)="save()">
+
+      <div class="mb-3">
+        <label class="form-label">Blood Type</label>
+        <select class="form-select"
+                [ngModel]="form().bloodType"
+                (ngModelChange)="updateField('bloodType', $event)"
+                name="bloodType">
+          @for (bt of bloodTypes; track bt) {
+            <option [value]="bt">{{ bt }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Allergies</label>
+        <textarea class="form-control" rows="2"
+                  [ngModel]="form().allergies"
+                  (ngModelChange)="updateField('allergies', $event)"
+                  name="allergies"
+                  placeholder="e.g. Penicillin, peanuts — or None"></textarea>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Current Medications</label>
+        <textarea class="form-control" rows="2"
+                  [ngModel]="form().medications"
+                  (ngModelChange)="updateField('medications', $event)"
+                  name="medications"
+                  placeholder="e.g. Aspirin 100mg — or None"></textarea>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Medical Conditions</label>
+        <textarea class="form-control" rows="2"
+                  [ngModel]="form().medicalConditions"
+                  (ngModelChange)="updateField('medicalConditions', $event)"
+                  name="medicalConditions"
+                  placeholder="e.g. Asthma, hypertension — or None"></textarea>
+      </div>
+
+      <hr />
+      <h5>Emergency Contact</h5>
+
+      <div class="mb-3">
+        <label class="form-label">Name</label>
+        <input class="form-control"
+               [ngModel]="form().emergencyContactName"
+               (ngModelChange)="updateField('emergencyContactName', $event)"
+               name="emergencyContactName"
+               placeholder="Full name" />
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Phone</label>
+        <input class="form-control" type="tel"
+               [ngModel]="form().emergencyContactPhone"
+               (ngModelChange)="updateField('emergencyContactPhone', $event)"
+               name="emergencyContactPhone"
+               placeholder="+1 555-000-0000" />
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Relationship</label>
+        <input class="form-control"
+               [ngModel]="form().emergencyContactRelationship"
+               (ngModelChange)="updateField('emergencyContactRelationship', $event)"
+               name="emergencyContactRelationship"
+               placeholder="e.g. Spouse, Parent" />
+      </div>
+
+      @if (error()) {
+        <div class="alert alert-danger">{{ error() }}</div>
+      }
+      @if (saved()) {
+        <div class="alert alert-success">Profile saved securely.</div>
+      }
+
+      <button class="btn btn-primary" type="submit" [disabled]="saving()">
+        {{ saving() ? 'Saving…' : 'Save Profile' }}
+      </button>
+    </form>
+  }
+
+  <!-- Offline Rosters section (visible when cached rosters exist — AD has them from activities page) -->
+  @if (cachedRosters().length > 0) {
+    <hr class="mt-5" />
+    <h4>Offline Emergency Rosters</h4>
+    <p class="text-muted small">Downloaded for offline use. Available without network.</p>
+
+    <ul class="list-group mb-3">
+      @for (r of cachedRosters(); track r.activityId) {
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <strong>{{ r.activityTitle }}</strong>
+            <span class="text-muted small ms-2">Saved {{ r.savedAt | date:'short' }}</span>
+          </div>
+          <div>
+            <button class="btn btn-sm btn-outline-primary me-2" (click)="viewRoster(r.activityId)">View</button>
+            <button class="btn btn-sm btn-outline-danger" (click)="deleteRoster(r.activityId)">Delete</button>
+          </div>
+        </li>
+      }
+    </ul>
+
+    @if (viewingRoster(); as vr) {
+      <div class="card mt-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <strong>{{ vr.activityTitle }} — Emergency Roster</strong>
+          <button class="btn btn-sm btn-outline-secondary" (click)="closeRoster()">Close</button>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Blood</th>
+                <th>Allergies</th>
+                <th>Emergency Contact</th>
+                <th>Phone</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (entry of vr.roster; track entry.userId) {
+                <tr>
+                  <td>{{ entry.firstName }} {{ entry.lastName }}</td>
+                  @if (entry.medicalProfile; as mp) {
+                    <td>{{ mp.bloodType }}</td>
+                    <td>{{ mp.allergies || '—' }}</td>
+                    <td>{{ mp.emergencyContactName || '—' }}</td>
+                    <td>{{ mp.emergencyContactPhone || '—' }}</td>
+                  } @else {
+                    <td colspan="4" class="text-muted">No profile on file</td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  }
+</div>

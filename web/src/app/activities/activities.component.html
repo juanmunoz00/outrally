@@ -1,4 +1,3 @@
-```html
 <div class="activities">
   <div style="display:flex; justify-content:space-between; align-items:center">
     <h2>Upcoming Activities</h2>
@@ -158,7 +157,15 @@
         </div>
       }
 
+      @if (userRole === 'AD') {
+        <div class="mt-2 pt-2 border-top">
+          <button (click)="downloadRoster(a.id, a.title)"
+                  [disabled]="downloadingRoster()[a.id]">
+            {{ downloadingRoster()[a.id] ? 'Downloading…' : '⬇ Download Roster (Offline)' }}
+          </button>
+        </div>
+      }
+
     </div>
   }
 </div>
-```
