@@ -145,6 +145,14 @@ Generate a safe key with `openssl rand -base64 32`.
 
 > User secrets are stored in your OS user profile, never in the repo. See [JWT: login crashes with `IDX10720`](#jwt-login-crashes-with-idx10720-signing-key-too-short) for why the key must be at least 32 characters.
 
+Since Phase 6, the API also needs an encryption master key for medical profiles:
+
+```bash
+dotnet user-secrets set "Encryption:MasterKey" "$(openssl rand -base64 32)"
+```
+
+> Required since Phase 6. The key must be exactly 32 bytes (256 bits), base64-encoded. Never commit it.
+
 #### InMemory vs SQL Server
 
 `Program.cs` chooses the database provider at startup:
@@ -198,6 +206,7 @@ The API is hosted on **Azure App Service**. In the Azure portal, go to **App Ser
 | `Jwt__Key` | `Jwt:Key` | JWT signing key, 32+ characters |
 | `Jwt__Issuer` | `Jwt:Issuer` | `outrally-api` |
 | `Jwt__Audience` | `Jwt:Audience` | `outrally-web` |
+| `Encryption__MasterKey` | `Encryption:MasterKey` | 32-byte base64 key. Generate with `openssl rand -base64 32` |
 
 > ⚠️ Never put these values in `appsettings.json` or commit them to the repo.
 
@@ -358,19 +367,201 @@ Each phase is a small, working, tested slice of the app. When you finish a phase
               .ToList();
           foreach (var d in toRemove) services.Remove(d);
 
-          services.AddDbContext<AppDbContext>(o =>
-              o.UseInMemoryDatabase("TestDb"));
+          // One database per test host. Capture the name OUTSIDE the lambda (see Phase 4).
+          var dbName = Guid.NewGuid().ToString();
+          services.AddDbContext<AppDbContext>(o => o.UseInMemoryDatabase(dbName));
       });
   });
   ```
 
-### ⬜ Phase 3: _TBD_
+  Don't use a hardcoded name like `"TestDb"`. Every test would share the same database, and data left over from one test would leak into the next.
 
-> Placeholder.
+### ✅ Phase 3: Attendance, Navbar and `[Authorize]` (complete)
 
-### ⬜ Phase 4: _TBD_
+**Goal:** let logged-in users join and leave activities, enforce capacity, and show who's logged in.
 
-> Placeholder.
+**What was built:**
+
+- **`ActivityAttendee` entity** (`Outrally.Core`): `Id`, `ActivityId`, `UserId`, `SignedUpAt`, `Cancelled`
+- **`AppDbContext`** has a new `ActivityAttendees` DbSet. Migration: `AddActivityAttendees`
+- **`ActivitiesController`** now has `[Authorize]` on the whole controller, so every endpoint requires a valid JWT. Unauthenticated requests get `401 Unauthorized`.
+  | Endpoint | Purpose |
+  |---|---|
+  | `GET /api/activities` | Now also returns `attendeeCount` and `isAttending` for each activity |
+  | `POST /api/activities/{id}/attend` | Joins the activity. Returns `400 Bad Request` when the activity is full (`MaxParticipants` reached). |
+  | `DELETE /api/activities/{id}/attend` | Cancels the current user's attendance |
+- **Angular**
+  | File / piece | Change |
+  |---|---|
+  | `web/src/app/layout/navbar.component.ts` | New navbar with the user's first name, role badge and logout button. Reads `AuthService.currentUser()`. |
+  | `AuthService` | `currentUser` is a `signal<CurrentUser \| null>`, loaded from `localStorage` on init and updated on login |
+  | `ActivityService` | New `attend(id)` and `cancelAttendance(id)` methods |
+  | Activities component | Join/Leave buttons and an "attendees / max participants" display |
+- **Dev seed users** in `Program.cs`, created **only in Development**:
+  | Email | Role |
+  |---|---|
+  | `admin@outrally.dev` | AD |
+  | `leader@outrally.dev` | TL |
+  | `member@outrally.dev` | OE |
+
+  The password for all three is `Test1234!`.
+- **Tests updated:**
+  - JWTs generated in tests now include `sub`, `email` and `role` claims, like real tokens.
+  - Both the `DbContextOptions<AppDbContext>` and `AppDbContext` descriptors are removed before InMemory is added (see the Phase 2 lesson).
+
+**Lessons for juniors:**
+
+- **An auth guard must return a `UrlTree`, not call `router.navigate()`.** This version is wrong:
+
+  ```typescript
+  // ❌ Two navigations compete
+  router.navigate(['/login']);
+  return false;
+  ```
+
+  It starts two navigations at once: the guard's redirect and the router cancelling the original route. The router processes both and can produce an invalid URL like `login/activities`, which matches no route and shows a blank page. Return the redirect so the router gets one instruction instead:
+
+  ```typescript
+  // ✅ One instruction: "go here instead"
+  return router.createUrlTree(['/login']);
+  ```
+
+- **Seed users make role testing easy.** The InMemory database resets on every restart. Instead of re-registering each time, seed a few users with known roles in `Program.cs`, guarded by `app.Environment.IsDevelopment()` so they never reach production.
+
+### ✅ Phase 4: Carpool (complete)
+
+**Goal:** let attendees offer rides to an activity and claim seats in each other's cars.
+
+**What was built:**
+
+- **Entities** (`Outrally.Core`)
+  | Entity | Fields |
+  |---|---|
+  | `CarpoolOffer` | `Id`, `ActivityId`, `DriverUserId`, `DriverName`, `TotalSeats`, `DepartureLocation`, `DepartureTime`, `Notes`, `Passengers` (a collection of `CarpoolPassenger`) |
+  | `CarpoolPassenger` | `Id`, `CarpoolOfferId`, `PassengerId`, `PassengerName`, `SignedUpAt` |
+- **`AppDbContext`** has new `CarpoolOffers` and `CarpoolPassengers` DbSets. Migration: `AddCarpool`
+- **`CarpoolsController`**
+  | Endpoint | Purpose |
+  |---|---|
+  | `GET /api/activities/{activityId}/carpools` | Lists all offers for an activity, with passenger names, `seatsAvailable`, and `isMyOffer` / `isMyRide` flags |
+  | `POST /api/activities/{activityId}/carpools` | A driver creates an offer (one offer per driver per activity) |
+  | `POST /api/carpools/{offerId}/join` | Claims a seat. If the user is already in another carpool for the same activity, they're moved out of it, in one `SaveChangesAsync`, so the switch is atomic. |
+  | `DELETE /api/carpools/{offerId}/join` | Leaves a ride |
+  | `DELETE /api/carpools/{offerId}` | The driver cancels their own offer |
+- **Angular**
+  - `carpool.model.ts` defines `CarpoolOffer` and `CreateCarpoolDto`.
+  - `carpool.service.ts` makes the API calls.
+  - Each activity card has an expandable carpool section. It lists every offer with its passengers and has an **Offer a Ride** form and **Claim Seat**, **Switch Here** and **Leave Ride** buttons.
+
+**Lessons for juniors:**
+
+- **Two users in one test need one factory with two clients.** Carpool tests need a driver and a passenger acting on the same data. Create **one** `WebApplicationFactory` and call `factory.CreateClient()` twice, giving each client a different JWT:
+
+  ```csharp
+  // ✅ Same factory, same in-memory database
+  var driver = factory.CreateClient();
+  driver.DefaultRequestHeaders.Authorization = new("Bearer", driverToken);
+
+  var passenger = factory.CreateClient();
+  passenger.DefaultRequestHeaders.Authorization = new("Bearer", passengerToken);
+  ```
+
+  Two separate factories start two separate test hosts, each with its **own** in-memory database. The passenger would never see the driver's offer.
+
+- **Never put `Guid.NewGuid()` inside an `AddDbContext` lambda.** This looks harmless:
+
+  ```csharp
+  // ❌ A new database for every request
+  services.AddDbContext<AppDbContext>(o =>
+      o.UseInMemoryDatabase(Guid.NewGuid().ToString()));
+  ```
+
+  The lambda runs **every time the DI container creates a `DbContext`**, which is once per HTTP request. Each request gets a brand-new empty database. A `POST` saves to database 1, and the next `GET` queries database 2, which is empty. The test fails with no obvious reason. Capture the name **before** the lambda so every request shares the same database:
+
+  ```csharp
+  // ✅ One database for the lifetime of this test host
+  var dbName = Guid.NewGuid().ToString();
+  services.AddDbContext<AppDbContext>(o => o.UseInMemoryDatabase(dbName));
+  ```
+
+### ✅ Phase 5: Potluck (complete)
+
+**Goal:** let Team Leaders and Admins define a shopping list for an activity, and let members claim items, including partial quantities, so the group knows who's bringing what.
+
+**What was built:**
+
+- **Entities** (`Outrally.Core`)
+  | Entity | Fields |
+  |---|---|
+  | `PotluckItem` | `Id`, `ActivityId`, `Name`, `Unit` (`PotluckUnit` enum: `Package`, `Bottle`, `Can`, `Bag`, `Box`, `Other`), `QuantityNeeded`, `Notes`, `CreatedByUserId`, `Claims` (a collection of `PotluckClaim`) |
+  | `PotluckClaim` | `Id`, `PotluckItemId`, `ClaimantUserId`, `ClaimantName`, `QuantityClaimed`, `ClaimedAt` |
+- **`AppDbContext`** has new `PotluckItems` and `PotluckClaims` DbSets. Migration: `AddPotluck`
+- **`PotluckController`**
+  | Endpoint | Who can call it | Purpose |
+  |---|---|---|
+  | `GET /api/activities/{activityId}/potluck` | Any authenticated user | Lists all items with claim totals, `quantityRemaining`, `isFullyClaimed`, `isMyItem`, and the caller's own claim (`myClaim`) |
+  | `POST /api/activities/{activityId}/potluck` | TL / AD only | Adds an item to the list |
+  | `PUT /api/potluck/items/{id}` | TL / AD, item creator only | Edits an item |
+  | `DELETE /api/potluck/items/{id}` | TL / AD, item creator only | Removes an item |
+  | `POST /api/potluck/items/{itemId}/claim` | Any authenticated user | Claims a quantity. If the user already has a claim, the quantity is added to it. Rejected if the total would exceed `QuantityNeeded`. |
+  | `DELETE /api/potluck/claims/{id}` | Claimant only | Drops a claim |
+- **Angular**
+  - `potluck.model.ts` defines `PotluckItem`, `PotluckClaim`, `PotluckUnit`, `PotluckUnitLabels` and `CreatePotluckItemDto`.
+  - `potluck.service.ts` makes the API calls.
+  - Each activity card has an expandable **🍽️ Potluck** section:
+    - **TL/AD users** see an **Add Item** form and a **Remove** button on items they created.
+    - **Everyone** sees each item's claimed vs. needed count, a quantity input and a **Claim** button, or a **Drop** button if they already have a claim.
+    - Fully claimed items show **✓ Covered**.
+
+**Lesson for juniors:**
+
+- **Read role claims with `ClaimTypes.Role`, not the string `"role"`.** When ASP.NET Core's JWT Bearer middleware builds the `ClaimsPrincipal`, it maps the token's `"role"` claim to `ClaimTypes.Role` (`http://schemas.microsoft.com/ws/2008/06/identity/claims/role`). So this returns `null` even though the token clearly contains a role:
+
+  ```csharp
+  // ❌ null: the claim was renamed when the token was read
+  var role = User.FindFirstValue("role");
+  ```
+
+  Use the mapped name instead:
+
+  ```csharp
+  // ✅
+  var role = User.FindFirstValue(ClaimTypes.Role);
+  ```
+
+  The same applies in tests. Build test tokens with `new Claim(ClaimTypes.Role, "TL")`, not `new Claim("role", "TL")`.
+
+### ✅ Phase 6: Encrypted Medical Profiles & Offline Roster (complete)
+
+**Goal:** let every member store medical and emergency information securely, and let Admins carry an activity's emergency roster into the field with no signal.
+
+**What was built:**
+
+- **`MedicalProfile` entity** (`Outrally.Core`), which stores the profile as one **AES-256-GCM encrypted blob** in SQL Server. The blob layout is `nonce (12 bytes) + tag (16 bytes) + ciphertext`.
+- **`EncryptionService`** (`Outrally.Infrastructure`)
+  - AES-256-GCM encryption with a **per-user key**: `MasterKey + UserId → HKDF → UserKey`
+  - The per-user key is derived when needed and **never stored**.
+  - The master key is a 32-byte base64 value kept in user secrets locally and in Azure configuration in production.
+- **Endpoints**
+  | Endpoint | Who can call it | Purpose |
+  |---|---|---|
+  | `GET /api/profile/medical` | Any authenticated user | Returns the caller's own decrypted profile |
+  | `PUT /api/profile/medical` | Any authenticated user | Encrypts and saves the caller's profile |
+  | `GET /api/activities/{id}/emergency-roster` | AD only | Returns the name and decrypted medical info of every attendee |
+- **Angular**
+  - **`/profile` page:** a form for blood type, allergies, medications, medical conditions and emergency contact.
+  - **Offline roster:** an Admin clicks **Download Roster** on any activity. The roster is saved to **IndexedDB** and can be read on the Profile page without a network connection.
+  - **PWA:** `ng add @angular/pwa` added the service worker and `manifest.webmanifest`. A `web.config` was added so IIS on SmarterASP.NET serves the right MIME types and sends deep links to Angular's router.
+
+**Lessons for juniors:**
+
+- **Add the master key everywhere the app runs.** In Azure it's the `Encryption__MasterKey` application setting (see [Deploying to Azure](#deploying-to-azure)). Locally it's a user secret (see [Required secrets](#required-secrets-phase-2)).
+- **Every test factory needs a master key too.** `EncryptionService` throws in its constructor if the key is missing, and that breaks **every** test, not just the medical ones. Add this to each factory's `WithWebHostBuilder`:
+
+  ```csharp
+  // Test-only key: 32 zero bytes. Never use it outside tests.
+  builder.UseSetting("Encryption:MasterKey", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+  ```
 
 ---
 
