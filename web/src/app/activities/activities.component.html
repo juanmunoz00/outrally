@@ -2,7 +2,9 @@
   <div style="display:flex; justify-content:space-between; align-items:center">
     <h2>Upcoming Activities</h2>
     <button (click)="showForm.set(!showForm())">
-      {{ showForm() ? 'Cancel' : '+ New Activity' }}
+      @if (userRole === 'AD' || userRole === 'TL') {
+        {{ showForm() ? 'Cancel' : '+ New Activity' }}
+      }
     </button>
   </div>
 

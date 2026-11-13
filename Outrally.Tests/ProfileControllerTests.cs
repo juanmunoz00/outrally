@@ -181,8 +181,9 @@ public class ProfileControllerTests
     {
         var factory = CreateFactory();
         var member = CreateClient(factory, "member-2", "OE");
+        var admin = CreateClient(factory, "admin-seed", "AD");
 
-        var activityId = await SeedActivityAsync(member);
+        var activityId = await SeedActivityAsync(admin);
 
         var r = await member.GetAsync($"/api/activities/{activityId}/emergency-roster");
         Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);

@@ -56,7 +56,7 @@ public class ActivitiesControllerTests
         {
             new Claim(JwtRegisteredClaimNames.Sub, "test-user-id"),
             new Claim(JwtRegisteredClaimNames.Email, "test@outrally.com"),
-            new Claim(ClaimTypes.Role, "OE")
+            new Claim(ClaimTypes.Role, "AD")
         };
         var token = new JwtSecurityToken(
             issuer: "outrally-api",

@@ -44,6 +44,7 @@ public class ActivitiesController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "AD,TL")]
     public async Task<IActionResult> Create(Activity activity)
     {
         _db.Activities.Add(activity);

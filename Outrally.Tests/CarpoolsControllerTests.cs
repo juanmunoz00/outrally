@@ -60,7 +60,8 @@ public class CarpoolsControllerTests
             {
                 new Claim(JwtRegisteredClaimNames.Sub, userId),
                 new Claim(JwtRegisteredClaimNames.Email, $"{userId}@test.com"),
-                new Claim("firstName", firstName)
+                new Claim("firstName", firstName),
+                new Claim(ClaimTypes.Role, "AD")
             },
             expires: DateTime.UtcNow.AddHours(1),
             signingCredentials: creds);
