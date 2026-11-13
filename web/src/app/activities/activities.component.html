@@ -1,11 +1,11 @@
 <div class="activities">
   <div style="display:flex; justify-content:space-between; align-items:center">
     <h2>Upcoming Activities</h2>
-    <button (click)="showForm.set(!showForm())">
-      @if (userRole === 'AD' || userRole === 'TL') {
+    @if (userRole === 'AD' || userRole === 'TL') {
+      <button (click)="showForm.set(!showForm())">
         {{ showForm() ? 'Cancel' : '+ New Activity' }}
-      }
-    </button>
+      </button>
+    }
   </div>
 
   @if (showForm()) {
