@@ -20,6 +20,7 @@ import { AuthService } from '../services/auth.service';
         </button>
       </form>
       <p>No account? <a routerLink="/register">Register</a></p>
+      <p><a routerLink="/forgot-password">Forgot password?</a></p>
     </div>
   `
 })

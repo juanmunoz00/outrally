@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Outrally.Infrastructure;
+using Resend;
 
 try
 {
@@ -64,6 +65,10 @@ try
                   .AllowAnyHeader()
                   .AllowAnyMethod());
     });
+
+builder.Services.AddResend(options =>
+    options.ApiToken = builder.Configuration["Resend:ApiKey"]!);
+builder.Services.AddScoped<IEmailService, ResendEmailService>();
 
     builder.Services.AddScoped<IEncryptionService, EncryptionService>();
 

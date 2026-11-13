@@ -16,4 +16,5 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<PotluckItem> PotluckItems => Set<PotluckItem>();
     public DbSet<PotluckClaim> PotluckClaims => Set<PotluckClaim>();    
     public DbSet<MedicalProfile> MedicalProfiles => Set<MedicalProfile>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 }
