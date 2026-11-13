@@ -291,6 +291,30 @@ namespace Outrally.Infrastructure.Migrations
                     b.ToTable("CarpoolPassengers");
                 });
 
+            modelBuilder.Entity("Outrally.Core.MedicalProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<byte[]>("EncryptedData")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MedicalProfiles");
+                });
+
             modelBuilder.Entity("Outrally.Core.Organization", b =>
                 {
                     b.Property<int>("Id")
@@ -309,6 +333,76 @@ namespace Outrally.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Organizations");
+                });
+
+            modelBuilder.Entity("Outrally.Core.PotluckClaim", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ClaimantName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ClaimantUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ClaimedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PotluckItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuantityClaimed")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PotluckItemId");
+
+                    b.ToTable("PotluckClaims");
+                });
+
+            modelBuilder.Entity("Outrally.Core.PotluckItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ActivityId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("QuantityNeeded")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Unit")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActivityId");
+
+                    b.ToTable("PotluckItems");
                 });
 
             modelBuilder.Entity("Outrally.Infrastructure.ApplicationUser", b =>
@@ -479,6 +573,28 @@ namespace Outrally.Infrastructure.Migrations
                     b.Navigation("CarpoolOffer");
                 });
 
+            modelBuilder.Entity("Outrally.Core.PotluckClaim", b =>
+                {
+                    b.HasOne("Outrally.Core.PotluckItem", "PotluckItem")
+                        .WithMany("Claims")
+                        .HasForeignKey("PotluckItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PotluckItem");
+                });
+
+            modelBuilder.Entity("Outrally.Core.PotluckItem", b =>
+                {
+                    b.HasOne("Outrally.Core.Activity", "Activity")
+                        .WithMany()
+                        .HasForeignKey("ActivityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Activity");
+                });
+
             modelBuilder.Entity("Outrally.Infrastructure.ApplicationUser", b =>
                 {
                     b.HasOne("Outrally.Core.Organization", "Organization")
@@ -493,6 +609,11 @@ namespace Outrally.Infrastructure.Migrations
             modelBuilder.Entity("Outrally.Core.CarpoolOffer", b =>
                 {
                     b.Navigation("Passengers");
+                });
+
+            modelBuilder.Entity("Outrally.Core.PotluckItem", b =>
+                {
+                    b.Navigation("Claims");
                 });
 #pragma warning restore 612, 618
         }

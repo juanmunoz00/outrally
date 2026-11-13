@@ -26,6 +26,7 @@ public class ActivitiesControllerTests
                 builder.UseSetting("Jwt:Issuer", "outrally-api");
                 builder.UseSetting("Jwt:Audience", "outrally-web");
                 builder.UseSetting("ConnectionStrings:DefaultConnection", "");
+                builder.UseSetting("Encryption:MasterKey", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
 
                 builder.ConfigureServices(services =>
                 {

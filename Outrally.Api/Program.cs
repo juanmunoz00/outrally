@@ -56,10 +56,12 @@ try
     builder.Services.AddCors(options =>
     {
         options.AddDefaultPolicy(policy =>
-            policy.WithOrigins("http://localhost:4200", "https://outrally.juanmunoz.dev")
+            policy.WithOrigins("http://localhost:4200", "https://outrally.juanmunoz.dev", "https://jamunozz-001-site3.ltempurl.com")
                   .AllowAnyHeader()
                   .AllowAnyMethod());
     });
+
+    builder.Services.AddScoped<IEncryptionService, EncryptionService>();
 
     var app = builder.Build();
 

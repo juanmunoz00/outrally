@@ -5,6 +5,8 @@ import { ActivityService } from '../services/activity.service';
 import { CarpoolService } from '../services/carpool.service';
 import { PotluckService } from '../services/potluck.service';
 import { AuthService } from '../services/auth.service';
+import { MedicalProfileService } from '../services/medical-profile.service';
+import { IndexedDbService } from '../services/indexed-db.service';
 import { Activity } from '../models/activity.model';
 import { CarpoolOffer } from '../models/carpool.model';
 import { PotluckItem, PotluckUnitLabels } from '../models/potluck.model';
@@ -20,6 +22,8 @@ export class ActivitiesComponent implements OnInit {
   private activitySvc = inject(ActivityService);
   private carpoolSvc = inject(CarpoolService);
   private potluckSvc = inject(PotluckService);
+  private medSvc = inject(MedicalProfileService);
+  private idb = inject(IndexedDbService);
   auth = inject(AuthService);
 
   // Activity state
@@ -44,6 +48,9 @@ export class ActivitiesComponent implements OnInit {
   claimQty: Record<number, number> = {};
   unitLabels = PotluckUnitLabels;
 
+  // Roster state
+  downloadingRoster = signal<Record<number, boolean>>({});
+
   get userRole(): string {
     return this.auth.currentUser()?.role ?? 'OE';
   }
@@ -62,15 +69,29 @@ export class ActivitiesComponent implements OnInit {
 
   submit() {
     this.submitting.set(true);
-    this.activitySvc.createActivity(this.newActivity).subscribe({
+    const payload = {
+      ...this.newActivity,
+      scheduledAt: this.newActivity.scheduledDate
+    };
+    this.activitySvc.createActivity(payload).subscribe({
       next: () => {
+        this.submitting.set(false);
         this.showForm.set(false);
         this.newActivity = { title: '', description: '', scheduledDate: '', location: '', maxParticipants: 10 };
         this.loadActivities();
-        this.submitting.set(false);
       },
       error: () => { this.submitting.set(false); }
     });
+  }
+
+  statusLabel(status: string | number): string {
+    const map: Record<string, string> = {
+      '0': 'Upcoming', 'upcoming': 'Upcoming',
+      '1': 'Ongoing',  'ongoing': 'Ongoing',
+      '2': 'Completed','completed': 'Completed',
+      '3': 'Cancelled','cancelled': 'Cancelled'
+    };
+    return map[String(status).toLowerCase()] ?? String(status);
   }
 
   join(id: number) {
@@ -81,39 +102,33 @@ export class ActivitiesComponent implements OnInit {
     this.activitySvc.cancelAttendance(id).subscribe({ next: () => this.loadActivities() });
   }
 
-  statusLabel(status: string) {
-    const map: Record<string, string> = { '0': 'Scheduled', '1': 'Cancelled', '2': 'Completed' };
-    return map[status] ?? status;
-  }
-
-  // ── Carpools ─────────────────────────────────────────────────
+  // ── Carpools ────────────────────────────────────────────────
 
   toggleCarpools(activityId: number) {
-    const current = this.showCarpoolSection();
-    const isOpen = current[activityId];
-    this.showCarpoolSection.set({ ...current, [activityId]: !isOpen });
+    const isOpen = this.showCarpoolSection()[activityId];
+    this.showCarpoolSection.update(s => ({ ...s, [activityId]: !isOpen }));
     if (!isOpen) this.loadCarpools(activityId);
   }
 
   loadCarpools(activityId: number) {
     this.carpoolSvc.getCarpools(activityId).subscribe({
-      next: list => this.carpools.set({ ...this.carpools(), [activityId]: list })
+      next: offers => this.carpools.update(c => ({ ...c, [activityId]: offers }))
     });
   }
 
   toggleOfferForm(activityId: number) {
-    const current = this.showOfferForm();
-    this.showOfferForm.set({ ...current, [activityId]: !current[activityId] });
-    if (!this.offerForm[activityId]) {
-      this.offerForm[activityId] = { totalSeats: 3, departureLocation: '', departureTime: '', notes: '' };
+    const isOpen = this.showOfferForm()[activityId];
+    if (!isOpen) {
+      this.offerForm[activityId] = { totalSeats: 2, departureLocation: '', departureTime: '', notes: '' };
     }
+    this.showOfferForm.update(s => ({ ...s, [activityId]: !isOpen }));
   }
 
   submitOffer(activityId: number) {
     const form = this.offerForm[activityId];
     this.carpoolSvc.createOffer(activityId, form).subscribe({
       next: () => {
-        this.showOfferForm.set({ ...this.showOfferForm(), [activityId]: false });
+        this.showOfferForm.update(s => ({ ...s, [activityId]: false }));
         this.loadCarpools(activityId);
       }
     });
@@ -135,40 +150,36 @@ export class ActivitiesComponent implements OnInit {
     return (offers ?? []).some(o => o.isMyRide && o.id !== offer.id);
   }
 
-  // ── Potluck ──────────────────────────────────────────────────
+  // ── Potluck ─────────────────────────────────────────────────
 
   togglePotluck(activityId: number) {
-    const current = this.showPotluckSection();
-    const isOpen = current[activityId];
-    this.showPotluckSection.set({ ...current, [activityId]: !isOpen });
+    const isOpen = this.showPotluckSection()[activityId];
+    this.showPotluckSection.update(s => ({ ...s, [activityId]: !isOpen }));
     if (!isOpen) this.loadPotluck(activityId);
   }
 
   loadPotluck(activityId: number) {
     this.potluckSvc.getItems(activityId).subscribe({
-      next: items => this.potluckItems.set({ ...this.potluckItems(), [activityId]: items })
+      next: items => this.potluckItems.update(p => ({ ...p, [activityId]: items }))
     });
   }
 
   toggleItemForm(activityId: number) {
-    const current = this.showItemForm();
-    this.showItemForm.set({ ...current, [activityId]: !current[activityId] });
-    if (!this.itemForm[activityId]) {
+    const isOpen = this.showItemForm()[activityId];
+    if (!isOpen) {
       this.itemForm[activityId] = { name: '', unit: 0, quantityNeeded: 1, notes: '' };
     }
+    this.showItemForm.update(s => ({ ...s, [activityId]: !isOpen }));
   }
 
   submitItem(activityId: number) {
-    this.potluckSvc.addItem(activityId, this.itemForm[activityId]).subscribe({
+    const form = this.itemForm[activityId];
+    this.potluckSvc.addItem(activityId, { ...form, unit: Number(form.unit) }).subscribe({
       next: () => {
-        this.showItemForm.set({ ...this.showItemForm(), [activityId]: false });
+        this.showItemForm.update(s => ({ ...s, [activityId]: false }));
         this.loadPotluck(activityId);
       }
     });
-  }
-
-  deletePotluckItem(itemId: number, activityId: number) {
-    this.potluckSvc.deleteItem(itemId).subscribe({ next: () => this.loadPotluck(activityId) });
   }
 
   claimItem(itemId: number, activityId: number) {
@@ -178,5 +189,25 @@ export class ActivitiesComponent implements OnInit {
 
   dropClaim(claimId: number, activityId: number) {
     this.potluckSvc.dropClaim(claimId).subscribe({ next: () => this.loadPotluck(activityId) });
+  }
+
+  deletePotluckItem(itemId: number, activityId: number) {
+    this.potluckSvc.deleteItem(itemId).subscribe({ next: () => this.loadPotluck(activityId) });
+  }
+
+  // ── Roster (AD only) ────────────────────────────────────────
+
+  async downloadRoster(activityId: number, activityTitle: string): Promise<void> {
+    this.downloadingRoster.update(s => ({ ...s, [activityId]: true }));
+    this.medSvc.getEmergencyRoster(activityId).subscribe({
+      next: async (roster) => {
+        await this.idb.saveRoster(activityId, activityTitle, roster);
+        this.downloadingRoster.update(s => ({ ...s, [activityId]: false }));
+        alert(`Roster for "${activityTitle}" saved for offline use (${roster.length} members).`);
+      },
+      error: () => {
+        this.downloadingRoster.update(s => ({ ...s, [activityId]: false }));
+      }
+    });
   }
 }
