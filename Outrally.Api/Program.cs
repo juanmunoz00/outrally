@@ -56,7 +56,11 @@ try
     builder.Services.AddCors(options =>
     {
         options.AddDefaultPolicy(policy =>
-            policy.WithOrigins("http://localhost:4200", "https://outrally.juanmunoz.dev", "https://jamunozz-001-site3.ltempurl.com")
+            policy.WithOrigins("http://localhost:4200", 
+            "https://outrally.juanmunoz.dev", 
+            "https://jamunozz-001-site3.ltempurl.com",
+            "https://outrally.juanmunoz.dev"
+            )
                   .AllowAnyHeader()
                   .AllowAnyMethod());
     });
