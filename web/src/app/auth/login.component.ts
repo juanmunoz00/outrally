@@ -42,7 +42,13 @@ export class LoginComponent {
     this.error.set('');
     const { email, password } = this.form.value;
     this.auth.login(email, password).subscribe({
-      next: () => this.router.navigate(['/activities']),
+      next: (res) => {
+      if (res.mustChangePassword) {
+        this.router.navigate(['/change-password']);
+      } else {
+        this.router.navigate(['/activities']);
+      }
+    },
       error: () => {
         this.error.set('Invalid email or password.');
         this.loading.set(false);

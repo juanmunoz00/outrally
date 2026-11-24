@@ -9,6 +9,7 @@ export interface AuthResponse {
   email: string;
   firstName: string;
   role: string;
+  mustChangePassword: boolean;
 }
 
 export interface CurrentUser {
@@ -28,18 +29,20 @@ export class AuthService {
     if (token && user) this.currentUser.set(JSON.parse(user));
   }
 
-  register(email: string, password: string, firstName: string, lastName: string): Observable<any> {
-    return this.http.post(`${this.url}/register`, { email, password, firstName, lastName });
+  register(email: string, firstName: string, lastName: string): Observable<any> {
+    return this.http.post(`${this.url}/register`, { email, firstName, lastName });
   }
 
   login(email: string, password: string): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.url}/login`, { email, password }).pipe(
-      tap(res => {
-        localStorage.setItem('token', res.token);
-        localStorage.setItem('user', JSON.stringify({ email: res.email, firstName: res.firstName, role: res.role }));
-        this.currentUser.set({ email: res.email, firstName: res.firstName, role: res.role });
-      })
+      tap(res => this.setSession(res))
     );
+  }
+
+  setSession(res: AuthResponse): void {
+    localStorage.setItem('token', res.token);
+    localStorage.setItem('user', JSON.stringify({ email: res.email, firstName: res.firstName, role: res.role }));
+    this.currentUser.set({ email: res.email, firstName: res.firstName, role: res.role });
   }
 
   logout(): void {

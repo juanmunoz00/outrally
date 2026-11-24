@@ -11,18 +11,21 @@ import { AuthService } from '../services/auth.service';
   template: `
     <div class="auth-container">
       <h2>Create Account</h2>
-      <form [formGroup]="form" (ngSubmit)="submit()">
-        <input formControlName="firstName" placeholder="First Name" required />
-        <input formControlName="lastName" placeholder="Last Name" required />
-        <input formControlName="email" type="email" placeholder="Email" required />
-        <input formControlName="password" type="password" placeholder="Password (min 8 chars)" required />
-        <div *ngIf="error()" class="error">{{ error() }}</div>
-        <div *ngIf="success()" class="success">{{ success() }}</div>
-        <button type="submit" [disabled]="form.invalid || loading()">
-          {{ loading() ? 'Creating...' : 'Create Account' }}
-        </button>
-      </form>
-      <p>Already have an account? <a routerLink="/login">Sign in</a></p>
+      @if (success()) {
+        <p class="success">{{ success() }}</p>
+        <p><a routerLink="/login">Go to Sign In</a></p>
+      } @else {
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <input formControlName="firstName" placeholder="First Name" required />
+          <input formControlName="lastName" placeholder="Last Name" required />
+          <input formControlName="email" type="email" placeholder="Email" required />
+          <div *ngIf="error()" class="error">{{ error() }}</div>
+          <button type="submit" [disabled]="form.invalid || loading()">
+            {{ loading() ? 'Creating...' : 'Create Account' }}
+          </button>
+        </form>
+        <p>Already have an account? <a routerLink="/login">Sign in</a></p>
+      }
     </div>
   `
 })
@@ -36,8 +39,7 @@ export class RegisterComponent {
     this.form = this.fb.group({
       firstName: ['', Validators.required],
       lastName: ['', Validators.required],
-      email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(8)]]
+      email: ['', [Validators.required, Validators.email]]
     });
   }
 
@@ -45,9 +47,12 @@ export class RegisterComponent {
     if (this.form.invalid) return;
     this.loading.set(true);
     this.error.set('');
-    const { email, password, firstName, lastName } = this.form.value;
-    this.auth.register(email, password, firstName, lastName).subscribe({
-      next: () => this.router.navigate(['/login']),
+    const { email, firstName, lastName } = this.form.value;
+    this.auth.register(email, firstName, lastName).subscribe({
+      next: () => {
+        this.success.set('Account created! Check your email for your temporary password.');
+        this.loading.set(false);
+      },
       error: () => {
         this.error.set('Registration failed. Try a different email.');
         this.loading.set(false);

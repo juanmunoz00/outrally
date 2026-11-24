@@ -9,4 +9,5 @@ export const routes: Routes = [
   { path: 'profile', loadComponent: () => import('./profile/profile.component').then(m => m.ProfileComponent), canActivate: [authGuard] },
   { path: 'forgot-password', loadComponent: () => import('./auth/forgot-password.component').then(m => m.ForgotPasswordComponent) },
   { path: 'reset-password', loadComponent: () => import('./auth/reset-password.component').then(m => m.ResetPasswordComponent) },
+  { path: 'change-password', loadComponent: () => import('./auth/change-password.component').then(m => m.ChangePasswordComponent) },
 ];

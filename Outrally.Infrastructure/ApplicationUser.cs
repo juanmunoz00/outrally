@@ -13,4 +13,5 @@ public class ApplicationUser : IdentityUser
     public int OrganizationId { get; set; }
     public Organization? Organization { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public bool MustChangePassword { get; set; } = false;
 }
